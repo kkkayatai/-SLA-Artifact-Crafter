@@ -11,7 +11,9 @@ An automated, local OCR macro that rerolls your Solo Leveling: Arise artifacts u
 
 ## How to Use
 
-1. Double-click **`Run.bat`**. It automatically installs required packages and opens the menu.
+1. **Right-click `Run.bat` and select "Run as Administrator"**. 
+   - *(Note: Games block artificial mouse clicks and hotkeys unless the script has Admin privileges!)*
+   - It will automatically install required packages and open the menu.
 2. Type the number for your desired artifact preset and press Enter.
 3. **Calibrate (First Time Only):**
    - Hover the top-left of the substats box -> press `F1`.

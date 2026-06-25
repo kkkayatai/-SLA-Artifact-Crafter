@@ -1,9 +1,23 @@
 @echo off
+cd /d "%~dp0"
 title SL:ARISE Artifact Unified Crafter
 echo ==================================================
 echo      SL:ARISE ARTIFACT UNIFIED CRAFTER
 echo ==================================================
 echo.
+
+:: Check for Administrator privileges
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+    echo [ERROR] YOU MUST RUN THIS AS ADMINISTRATOR!
+    echo.
+    echo Solo Leveling: Arise blocks automated mouse clicks and keyboard 
+    echo shortcuts unless the script is running with Administrator privileges.
+    echo.
+    echo Please right-click Run.bat and select "Run as Administrator".
+    pause
+    exit /b
+)
 
 :: Check if Python is installed
 python --version >nul 2>&1
