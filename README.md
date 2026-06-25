@@ -19,6 +19,9 @@ An automated, local OCR macro that rerolls your Solo Leveling: Arise artifacts u
    - Hover the top-left of the substats box -> press `F1`.
    - Hover the bottom-right of the substats box -> press `F1`.
    - Hover over the "Readjust Stats" button -> press `F1`.
+   
+   ![Calibration Guide](imgs/calibrate%20%20substats%20box.png)
+
 4. Press **`F2`** to start the auto-reroller!
 
 ## Controls
