@@ -357,7 +357,7 @@ def on_press(key):
                     print("  ▶️ Resumed auto-reroll.")
 
         elif key == keyboard.Key.f5:
-            print("  🛑 Exiting script...")
+            print("  🛑 Stopping and returning to menu...")
             exit_event.set()
             return False
 
@@ -368,16 +368,24 @@ def on_press(key):
 def show_menu_and_setup():
     global DESIRED_MATCH_RULES, MANDATORY_STATS
     
-    print("=" * 50)
+    print("\n" + "=" * 50)
     print("      SL:ARISE ARTIFACT UNIFIED CRAFTER")
     print("=" * 50)
     print("Select the artifact preset you want to roll for:")
     for k in sorted(PRESETS.keys(), key=int):
         print(f"  [{k}] {PRESETS[k]['name']}")
+    print("  [0] Quit")
     print("=" * 50)
     
     while True:
-        choice = input("Enter number (1-9): ").strip()
+        try:
+            choice = input("Enter number (0-9): ").strip()
+        except (KeyboardInterrupt, EOFError):
+            print()
+            return "0"
+            
+        if choice == "0":
+            return choice
         if choice in PRESETS:
             preset = PRESETS[choice]
             print(f"\n✅ Selected Preset: {preset['name']}")
@@ -385,9 +393,9 @@ def show_menu_and_setup():
             DESIRED_MATCH_RULES.extend(preset["rules"])
             MANDATORY_STATS.clear()
             MANDATORY_STATS.extend([r["display"] for r in DESIRED_MATCH_RULES if r["mandatory"]])
-            break
+            return choice
         else:
-            print("❌ Invalid choice. Please enter a number from 1 to 9.")
+            print("❌ Invalid choice. Please enter a number from 0 to 9.")
 
 
 def main():
@@ -404,83 +412,93 @@ def main():
         input()
         sys.exit(1)
 
-    # 1. Interactive Menu
-    show_menu_and_setup()
+    while True:
+        # 1. Interactive Menu
+        choice = show_menu_and_setup()
+        if choice == "0":
+            print("\n  Goodbye!\n")
+            sys.exit(0)
 
-    print("\n  ╔═══════════════════════════════════════════════╗")
-    print("  ║    SL:Arise Artifact Auto-Reroll (SMART)      ║")
-    print("  ╠═══════════════════════════════════════════════╣")
-    print("  ║  F1  Calibrate (3 steps)                     ║")
-    print("  ║  F2  Start auto-rerolling                    ║")
-    print("  ║  F3  Pause / Resume                          ║")
-    print("  ║  F5  Exit script                             ║")
-    print("  ╠═══════════════════════════════════════════════╣")
-    print(f"  ║  Delay: {CLICK_DELAY}s | OCR wait: {OCR_WAIT}s               ║")
-    print("  ╚═══════════════════════════════════════════════╝")
-    print()
-    print(f"  Target substats (need 4/4):")
-    for rule in DESIRED_MATCH_RULES:
-        tag = " [MUST]" if rule["mandatory"] else ""
-        print(f"    • {rule['display']}{tag}")
-    print()
+        print("\n  ╔═══════════════════════════════════════════════╗")
+        print("  ║    SL:Arise Artifact Auto-Reroll (SMART)      ║")
+        print("  ╠═══════════════════════════════════════════════╣")
+        print("  ║  F1  Calibrate (3 steps)                     ║")
+        print("  ║  F2  Start auto-rerolling                    ║")
+        print("  ║  F3  Pause / Resume                          ║")
+        print("  ║  F5  Return to Menu                          ║")
+        print("  ╠═══════════════════════════════════════════════╣")
+        print(f"  ║  Delay: {CLICK_DELAY}s | OCR wait: {OCR_WAIT}s               ║")
+        print("  ╚═══════════════════════════════════════════════╝")
+        print()
+        print(f"  Target substats (need 4/4):")
+        for rule in DESIRED_MATCH_RULES:
+            tag = " [MUST]" if rule["mandatory"] else ""
+            print(f"    • {rule['display']}{tag}")
+        print()
 
-    if not load_config():
-        print("  No saved calibration found.")
-        print("  Hover over the TOP-LEFT corner of the stat names area and press F1\n")
+        if not load_config():
+            print("  No saved calibration found.")
+            print("  Hover over the TOP-LEFT corner of the stat names area and press F1\n")
 
-    listener = keyboard.Listener(on_press=on_press)
-    listener.start()
+        # Reset states for the new session
+        exit_event.clear()
+        if not calibrated:
+            state = "IDLE"
+        else:
+            state = "CALIBRATED"
 
-    try:
-        while not exit_event.is_set():
-            if state == "RUNNING" and calibrated:
-                pyautogui.click(click_pos[0], click_pos[1])
-                roll_count += 1
-                time.sleep(OCR_WAIT)
+        listener = keyboard.Listener(on_press=on_press)
+        listener.start()
 
-                try:
-                    raw_screenshot, cleaned_text_1, _ = capture_and_ocr(region_tl, region_br)
-                    match_1, found_1, lines_1 = check_substats(cleaned_text_1)
+        try:
+            while not exit_event.is_set():
+                if state == "RUNNING" and calibrated:
+                    pyautogui.click(click_pos[0], click_pos[1])
+                    roll_count += 1
+                    time.sleep(OCR_WAIT)
 
-                    if match_1:
-                        match_filename = f"MATCH_4of4_Roll_{roll_count}.png"
-                        match_filepath = os.path.join(SCREENSHOT_DIR, match_filename)
-                        raw_screenshot.save(match_filepath)
-                        
-                        with lock:
-                            state = "PAUSED"
-                        
-                        print(f"\n  {'='*50}")
-                        print(f"  🎉 Roll #{roll_count} — PERFECT 4/4 MATCH! 🎉")
-                        print(f"  {'='*50}")
-                        print(f"  Found: {', '.join(sorted(found_1))}")
-                        print(f"  Screenshot: {os.path.join('screenshots', match_filename)}")
-                        print(f"  ⏸ Auto-paused. Go check your screen!")
-                        print(f"  Press F2 to resume, F5 to exit.\n")
-                    else:
-                        if len(found_1) >= 2:
-                            print(f"  Roll #{roll_count} | {len(found_1)}/4: {', '.join(sorted(found_1))}")
-                            print(f"    OCR: {' | '.join(lines_1)}")
-                        elif len(found_1) > 0:
-                            print(f"  Roll #{roll_count} | {len(found_1)}/4: {', '.join(sorted(found_1))}")
+                    try:
+                        raw_screenshot, cleaned_text_1, _ = capture_and_ocr(region_tl, region_br)
+                        match_1, found_1, lines_1 = check_substats(cleaned_text_1)
+
+                        if match_1:
+                            match_filename = f"MATCH_4of4_Roll_{roll_count}.png"
+                            match_filepath = os.path.join(SCREENSHOT_DIR, match_filename)
+                            raw_screenshot.save(match_filepath)
+                            
+                            with lock:
+                                state = "PAUSED"
+                            
+                            print(f"\n  {'='*50}")
+                            print(f"  🎉 Roll #{roll_count} — PERFECT 4/4 MATCH! 🎉")
+                            print(f"  {'='*50}")
+                            print(f"  Found: {', '.join(sorted(found_1))}")
+                            print(f"  Screenshot: {os.path.join('screenshots', match_filename)}")
+                            print(f"  ⏸ Auto-paused. Go check your screen!")
+                            print(f"  Press F2 to resume, F5 to return to menu.\n")
                         else:
-                            print(f"  Roll #{roll_count} | 0/4")
+                            if len(found_1) >= 2:
+                                print(f"  Roll #{roll_count} | {len(found_1)}/4: {', '.join(sorted(found_1))}")
+                                print(f"    OCR: {' | '.join(lines_1)}")
+                            elif len(found_1) > 0:
+                                print(f"  Roll #{roll_count} | {len(found_1)}/4: {', '.join(sorted(found_1))}")
+                            else:
+                                print(f"  Roll #{roll_count} | 0/4")
 
-                except Exception as e:
-                    print(f"  Roll #{roll_count} | OCR error: {e}")
+                    except Exception as e:
+                        print(f"  Roll #{roll_count} | OCR error: {e}")
 
-                remaining = max(0, CLICK_DELAY - OCR_WAIT)
-                for _ in range(int(remaining * 20)):
-                    if state != "RUNNING" or exit_event.is_set():
-                        break
+                    remaining = max(0, CLICK_DELAY - OCR_WAIT)
+                    for _ in range(int(remaining * 20)):
+                        if state != "RUNNING" or exit_event.is_set():
+                            break
+                        time.sleep(0.05)
+                else:
                     time.sleep(0.05)
-            else:
-                time.sleep(0.05)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        listener.stop()
-        print("\n  Goodbye!\n")
+        except KeyboardInterrupt:
+            pass
+        finally:
+            listener.stop()
 
 
 if __name__ == "__main__":
